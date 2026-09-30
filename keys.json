@@ -1,15 +1,38 @@
 {
- "updated": "2026-09-30T18:03:32Z",
- "source": "backpack.tf IGetCurrencies",
+ "updated": "2026-09-30T18:10:51Z",
  "current": {
   "ref": 64.56,
   "low": 64.11,
   "high": 65.0
  },
+ "shops": [
+  {
+   "id": "stn",
+   "name": "STN Trading",
+   "url": "https://stntrading.eu/tf2/keys",
+   "unit": "ref",
+   "buy": 62.22,
+   "sell": 66.22
+  },
+  {
+   "id": "quicksell",
+   "name": "Quicksell",
+   "url": "https://quicksell.store/keys",
+   "unit": "ref",
+   "buy": null,
+   "sell": null
+  }
+ ],
  "history": [
   {
    "date": "2026-09-30",
-   "ref": 64.56
+   "ref": 64.56,
+   "shops": {
+    "stn": {
+     "b": 62.22,
+     "s": 66.22
+    }
+   }
   }
  ]
 }
