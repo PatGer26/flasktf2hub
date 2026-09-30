@@ -1,5 +1,5 @@
 {
- "updated": "2026-09-30T18:42:16Z",
+ "updated": "2026-09-30T19:10:26Z",
  "current": {
   "ref": 64.56,
   "low": 64.11,
@@ -20,7 +20,7 @@
    "url": "https://steamcommunity.com/market/listings/440/Mann%20Co.%20Supply%20Crate%20Key",
    "unit": "usd",
    "buy": null,
-   "sell": 2.25,
+   "sell": 2.26,
    "median": 2.25
   },
   {
@@ -42,7 +42,7 @@
      "s": 66.22
     },
     "steam": {
-     "s": 2.25,
+     "s": 2.26,
      "m": 2.25
     }
    }
