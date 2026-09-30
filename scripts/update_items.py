@@ -44,6 +44,13 @@ def clean(items):
         # skip empty names, untranslated tokens and internal class names
         if not n or n.startswith("#") or "TF_" in n or n.startswith("Upgradeable"):
             continue
+        # the schema also holds system messages stored as items
+        # ("Your account has been flagged...", "Congratulations! ..."); real
+        # item names are short and are never full sentences
+        low = n.lower()
+        if (len(n) > 60 or len(n.split()) > 8 or "!" in n or "?" in n
+                or " has been " in low or "we have " in low or "your account" in low):
+            continue
         names.add(n)
     return sorted(names, key=str.lower)
 
