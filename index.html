@@ -231,7 +231,8 @@ function ac(inp,box,cb){
  let idx=-1,cur=[];
  const rec=()=>{try{return JSON.parse(localStorage.getItem('tf2hub_recent')||'[]')}catch(e){return[]}};
  const show=()=>{const v=inp.value.trim().toLowerCase();
-  cur=(v?ITEMS.filter(x=>x.toLowerCase().includes(v)).sort((a,b)=>a.toLowerCase().indexOf(v)-b.toLowerCase().indexOf(v)):rec()).slice(0,8);
+  const sc=x=>{const l=x.toLowerCase();return(l===v?0:l.startsWith(v)?1:l.includes(' '+v)?2:3)*1000+l.length};
+  cur=(v?ITEMS.filter(x=>x.toLowerCase().includes(v)).sort((a,b)=>sc(a)-sc(b)):rec()).slice(0,8);
   idx=-1;box.innerHTML=cur.map((x,i)=>`<div role="option" class="opt" data-i="${i}">${esc(x)}${v?'':' <small>recent</small>'}</div>`).join('');box.hidden=!cur.length};
  const pick=i=>{inp.value=cur[i];box.hidden=true;cb()};
  inp.addEventListener('input',()=>{show();cb()});inp.addEventListener('focus',show);
