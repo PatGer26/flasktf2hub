@@ -279,14 +279,15 @@ function chart(c){
 function keys(){
  if(KSTATE!=='ok')return `<h2>Key prices</h2>${NOKEYS()}`;
  const {u,r,rate}=calc(),mx={},mn={};
- ['usd','ref'].forEach(c=>{const l=SOURCES.filter(s=>s.c===c),b=l.map(s=>s.b).filter(x=>x!=null),q=l.map(s=>s.s).filter(x=>x!=null);mx[c]=b.length?Math.max(...b):null;mn[c]=q.length?Math.min(...q):null});
+ ['usd','ref'].forEach(c=>{const l=SOURCES.filter(s=>s.c===c),b=l.map(s=>s.b).filter(x=>x!=null),q=l.map(s=>s.s).filter(x=>x!=null);mx[c]=b.length>1?Math.max(...b):null;mn[c]=q.length>1?Math.min(...q):null});
  const cap=(s,st)=>st.k&&s.v!=null&&(s.v<st.lo||s.v>st.hi);
  const conv=(s,v)=>v==null||rate==null?'–':s.c==='usd'?rf(v/rate):usd(v*rate),fmt=(s,v)=>s.c==='usd'?usd(v):rf(v);
- const rows=SOURCES.map(s=>{const st=s.c==='usd'?u:r;return `<tr><td><a href="${s.u}" ${ext}>${esc(s.n)}</a>${s.v==null?'<span class="cap">unavailable</span>':''}${cap(s,st)?'<span class="cap" title="Capped in the average">capped</span>':''}${s.b!=null&&s.b===mx[s.c]?'<span class="cap gd">highest buy</span>':''}${s.s!=null&&s.s===mn[s.c]?'<span class="cap gd">lowest sell</span>':''}<br><small>${esc(s.note)}</small></td>
+ const tbl=c=>`<h3 style="margin:22px 0 8px">${c==='usd'?'USD sources':'Ref sources'}</h3><div class="tw"><table><thead><tr><th>Source</th><th class="n">Buy</th><th class="n">Sell</th><th class="n">Used in average</th><th class="n">Converted</th><th>Updated</th></tr></thead><tbody>${rows(c)}</tbody></table></div>`;
+ const rows=c=>SOURCES.filter(s=>s.c===c).map(s=>{const st=s.c==='usd'?u:r;return `<tr><td><a href="${s.u}" ${ext}>${esc(s.n)}</a>${s.v==null?'<span class="cap">unavailable</span>':''}${cap(s,st)?'<span class="cap" title="Capped in the average">capped</span>':''}${s.b!=null&&s.b===mx[s.c]?'<span class="cap gd">highest buy</span>':''}${s.s!=null&&s.s===mn[s.c]?'<span class="cap gd">lowest sell</span>':''}<br><small>${esc(s.note)}</small></td>
   <td class="n">${fmt(s,s.b)}</td><td class="n">${fmt(s,s.s)}</td><td class="n">${fmt(s,s.v)}</td><td class="n">${conv(s,s.v)}</td><td>${UPDATED}</td></tr>`}).join('');
  return `<h2>Key prices</h2><p class="sub">The Mann Co. Supply Crate Key on every tracked source. Buy is what a site pays you. Sell is what you pay. Each source measures something slightly different, so read the note under its name. Click a name below a chart to hide or show it.</p>
  <div class="stats"><div class="stat"><b><span class="ico ico-k"></span> ${usd(u.mean)}</b>average, USD sites</div><div class="stat"><b><span class="ico ico-r"></span> ${rf(r.mean)}</b>average, ref sites</div><div class="stat"><b>${rate==null?'–':rate.toFixed(4)}</b>USD per ref (implied)</div></div>
- <div class="tw"><table><thead><tr><th>Source</th><th class="n">Buy</th><th class="n">Sell</th><th class="n">Used in average</th><th class="n">Converted</th><th>Updated</th></tr></thead><tbody>${rows}</tbody></table></div>
+ ${tbl('usd')}${tbl('ref')}
  <p class="meta" style="margin-top:14px">USD and ref sources are averaged separately, so nothing is converted before averaging. Each source counts with its sell price, or its buy price if it has no sell, or (backpack.tf) its reference price. With 3 or more sources in a group, the highest and lowest are capped to the next value in (winsorised). With exactly 3 that leaves the middle value, so one expensive source such as Steam cannot drag the average up. Converted uses the implied rate above.</p>
  ${chart('usd')}${chart('ref')}
  <div class="note">History starts on the first day the daily update ran and only contains real readings. A source that was unavailable on a day is left out of that day.</div>`;
