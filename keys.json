@@ -1,5 +1,5 @@
 {
- "updated": "2026-09-30T19:14:04Z",
+ "updated": "2026-09-30T19:21:37Z",
  "current": {
   "ref": 64.56,
   "low": 64.11,
@@ -20,7 +20,7 @@
    "url": "https://steamcommunity.com/market/listings/440/Mann%20Co.%20Supply%20Crate%20Key",
    "unit": "usd",
    "buy": null,
-   "sell": 2.26,
+   "sell": 2.25,
    "median": 2.26
   },
   {
@@ -28,8 +28,8 @@
    "name": "Mannco.store",
    "url": "https://mannco.store/item/440-mann-co-supply-crate-key",
    "unit": "usd",
-   "buy": null,
-   "sell": null
+   "buy": 1.75,
+   "sell": 1.76
   }
  ],
  "history": [
@@ -42,8 +42,12 @@
      "s": 66.22
     },
     "steam": {
-     "s": 2.26,
+     "s": 2.25,
      "m": 2.26
+    },
+    "mannco": {
+     "b": 1.75,
+     "s": 1.76
     }
    }
   }
