@@ -1,5 +1,5 @@
 {
- "updated": "2026-09-30T18:24:00Z",
+ "updated": "2026-09-30T18:29:00Z",
  "current": {
   "ref": 64.56,
   "low": 64.11,
@@ -13,14 +13,6 @@
    "unit": "ref",
    "buy": 62.22,
    "sell": 66.22
-  },
-  {
-   "id": "quicksell",
-   "name": "Quicksell",
-   "url": "https://quicksell.store/keys",
-   "unit": "ref",
-   "buy": null,
-   "sell": null
   }
  ],
  "history": [
