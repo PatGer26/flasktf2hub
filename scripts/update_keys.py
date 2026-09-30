@@ -4,14 +4,16 @@
 Sources (each one is fetched separately; a failure only skips that source):
   - backpack.tf IGetCurrencies API (needs BPTF_API_KEY, a GitHub Actions secret)
   - STN Trading: buy/sell price in ref, read from its public key page
+  - Scrap.tf (trial): buy/sell price in ref, read from its public key item page (one request per run)
   - Steam Community Market: lowest listing price in USD (public priceoverview JSON, no key)
   - Mannco.store: lowest sale price and buy-order price in USD (official API; MANNCO_API_KEY secret)
+  - Skinport: lowest listing price in USD (official public API, no key; uses curl because the API only answers in Brotli)
 
 keys.json = {"updated", "current": {"ref", "low", "high"}, "shops": [...], "history": [...]}
 
-Offline tests (no network): CURRENCIES_FILE, STN_FILE, STEAM_FILE, MANNCO_FILE point at saved responses/pages.
+Offline tests (no network): CURRENCIES_FILE, STN_FILE, SCRAP_FILE, STEAM_FILE, MANNCO_FILE, SKINPORT_FILE point at saved responses/pages.
 """
-import html, json, os, re, sys, urllib.request, urllib.parse, urllib.error
+import html, json, os, re, subprocess, sys, tempfile, urllib.request, urllib.parse, urllib.error
 from datetime import datetime, timezone
 
 OUT = "keys.json"
@@ -20,6 +22,11 @@ UA = "FlaskTF2Hub/1.0 (hobby site; daily check; contact via github.com/PatGer26/
 
 SHOPS = [
     {"id": "stn", "name": "STN Trading", "url": "https://stntrading.eu/tf2/keys", "env": "STN_FILE"},
+    # Scrap.tf words its price from the CUSTOMER's side: "Sell for 62.33 refined, Buy for 66.33 refined"
+    # means the shop pays 62.33 for your key (its buy price) and charges 66.33 (its sell price).
+    # 'rx' captures (what the shop pays, what the shop charges), so the order is already corrected.
+    {"id": "scrap", "name": "Scrap.tf", "url": "https://scrap.tf/item/mann-co-supply-crate-key", "env": "SCRAP_FILE",
+     "rx": r"Sell for (\d+(?:\.\d+)?) refined,\s*Buy for (\d+(?:\.\d+)?) refined"},
 ]
 
 
@@ -94,13 +101,20 @@ SELL = re.compile(r"\bsell(?:ing)?(?:\s+keys)?\s+for\s*:?\s*(\d+(?:\.\d+)?)", re
 
 def shop_price(shop):
     text, raw_len = page_text(shop)
-    b, s = BUY.search(text), SELL.search(text)
+    if shop.get("rx"):
+        m = re.search(shop["rx"], text, re.I)
+        b, s = (m, m) if m else (None, None)
+    else:
+        b, s = BUY.search(text), SELL.search(text)
     if not b or not s:
         # Diagnostic: show what the server actually sent (public page text, no secrets)
         raise RuntimeError("%s: buy/sell price not found in page (layout changed, or blocked?). "
                            "Received %d bytes of HTML, %d chars of text. Text starts: %r"
                            % (shop["name"], raw_len, len(text), text[:300]))
-    buy, sell = float(b.group(1)), float(s.group(1))
+    if shop.get("rx"):
+        buy, sell = float(b.group(1)), float(b.group(2))
+    else:
+        buy, sell = float(b.group(1)), float(s.group(1))
     if not (sane(buy) and sane(sell)) or buy >= sell:
         raise RuntimeError("%s: prices look wrong (buy %s, sell %s)" % (shop["name"], buy, sell))
     return buy, sell
@@ -207,6 +221,56 @@ def mannco():
     return buy, sell
 
 
+# ---------- Skinport official public API (USD) ----------
+# GET /v1/items is public (no key), limited to 8 requests per 5 minutes, and only answers with
+# "Accept-Encoding: br" (Brotli). Python's standard library cannot decode Brotli, so curl does it.
+SKINPORT_URL = "https://api.skinport.com/v1/items?" + urllib.parse.urlencode({"app_id": 440, "currency": "USD", "tradable": 1})
+SKINPORT_PAGE = "https://skinport.com/tf2/market/tool?item=Mann+Co.+Supply+Crate+Key"
+SKINPORT_NAME = "Mann Co. Supply Crate Key"
+
+
+def skinport():
+    f = os.environ.get("SKINPORT_FILE")
+    if f:
+        data = json.load(open(f, encoding="utf-8"))
+    else:
+        tmp = tempfile.NamedTemporaryFile(suffix=".json", delete=False)
+        tmp.close()
+        try:
+            try:
+                res = subprocess.run(["curl", "-sS", "--compressed", "--max-time", "90", "-A", UA,
+                                      "-H", "Accept-Encoding: br", "-o", tmp.name, "-w", "%{http_code}", SKINPORT_URL],
+                                     capture_output=True, text=True, timeout=120)
+            except Exception as e:
+                raise RuntimeError("Skinport request could not run curl: %s" % type(e).__name__)
+            code = (res.stdout or "").strip()
+            if res.returncode != 0:
+                raise RuntimeError("Skinport request failed (curl exit %s): %s" % (res.returncode, (res.stderr or "").strip()[:200]))
+            raw = open(tmp.name, "rb").read()
+            if code != "200":
+                raise RuntimeError("Skinport returned HTTP %s (403 = blocked by its bot protection, 429 = rate limited); "
+                                   "received %d bytes, starts: %r" % (code, len(raw), raw[:200].decode("utf-8", "replace")))
+            try:
+                data = json.loads(raw.decode("utf-8"))
+            except Exception:
+                raise RuntimeError("Skinport answer was not JSON (%d bytes, starts: %r)" % (len(raw), raw[:200].decode("utf-8", "replace")))
+        finally:
+            try:
+                os.unlink(tmp.name)
+            except OSError:
+                pass
+    if not isinstance(data, list):
+        raise RuntimeError("Skinport answer has an unexpected shape: %s" % str(data)[:200])
+    rows = [x for x in data if isinstance(x, dict) and x.get("market_hash_name") == SKINPORT_NAME and num(x.get("min_price")) is not None]
+    if not rows:
+        raise RuntimeError("Skinport list (%d items) has no priced '%s'" % (len(data), SKINPORT_NAME))
+    best = min(rows, key=lambda x: num(x["min_price"]))
+    low, med = num(best.get("min_price")), num(best.get("median_price"))
+    if not (1 < low < 50):
+        raise RuntimeError("Skinport price looks wrong: %r" % best.get("min_price"))
+    return low, (med if med and 1 < med < 50 else None)
+
+
 def main():
     now = datetime.now(timezone.utc)
     today = now.strftime("%Y-%m-%d")
@@ -249,6 +313,16 @@ def main():
     except Exception as e:
         problems.append(str(e))
     shops.append(mc)
+
+    # Skinport: USD via its public API. Lowest listing = what a buyer pays. No buy side.
+    sk = {"id": "skinport", "name": "Skinport", "url": SKINPORT_PAGE, "unit": "usd", "buy": None, "sell": None, "median": None}
+    try:
+        sk["sell"], sk["median"] = skinport()
+        today_shops["skinport"] = {"s": sk["sell"], "m": sk["median"]}
+        got += 1
+    except Exception as e:
+        problems.append(str(e))
+    shops.append(sk)
 
     for p in problems:
         print("WARNING:", p)
