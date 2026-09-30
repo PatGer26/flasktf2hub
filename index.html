@@ -122,20 +122,10 @@ footer{text-align:center;color:var(--mute);font-size:17px;padding:0 20px 30px}
 
 <script>
 /* ============ EDIT THIS SECTION ============ */
-// SAMPLE VALUES. Replace with real prices and update the date when you refresh them.
-// c = currency the site quotes keys in ('usd' or 'ref'). b = buy price (what they pay you), s = sell price.
-const UPDATED = '2026-09-30';
-// Optional: give a source h:{b:[14 daily buy prices, oldest first]} to use real history. Without it, a SAMPLE line is drawn.
-const SOURCES = [
- {n:'backpack.tf', u:'https://backpack.tf/stats/Unique/Mann%20Co.%20Supply%20Crate%20Key/Tradable/Craftable', c:'ref', b:56.11, s:56.44},
- {n:'Scrap.tf',    u:'https://scrap.tf/', c:'ref', b:56.00, s:57.00},
- {n:'STN Trading', u:'https://stntrading.eu/', c:'ref', b:55.88, s:57.33},
- {n:'Steam Market',u:'https://steamcommunity.com/market/listings/440/Mann%20Co.%20Supply%20Crate%20Key', c:'usd', b:1.55, s:2.03},
- {n:'Mannco.store',u:'https://mannco.store/tf2', c:'usd', b:1.72, s:1.95},
- {n:'Marketplace.tf',u:'https://marketplace.tf/', c:'usd', b:1.68, s:1.90},
- {n:'Tradeit.gg',  u:'https://tradeit.gg/tf2', c:'usd', b:1.60, s:1.85},
- {n:'Quicksell',   u:'https://quicksell.store/', c:'usd', b:1.66, s:1.88}
-];
+// Key prices come from keys.json, written daily by the GitHub Action. Nothing is typed in by hand any more.
+let UPDATED='',SOURCES=[],HIST=[],KSTATE='loading';
+const BPURL='https://backpack.tf/stats/Unique/Mann%20Co.%20Supply%20Crate%20Key/Tradable/Craftable';
+const NOTE={bptf:"Community reference price (midpoint of its range). Not a shop quote.",stn:"Shop quote: what it pays you and what it charges.",scrap:"Shop quote: what it pays you and what it charges.",steam:"Lowest listing, buyers also pay Steam fees. No buy side.",mannco:"Lowest sale price and highest buy order.",skinport:"Lowest listing. No buy side."};
 // Shops for the item search. {q} is replaced with the item name. Check these patterns; sites change them.
 const SHOPS = [
  {n:'Steam Market', u:'https://steamcommunity.com/market/search?appid=440&q={q}'},
@@ -147,9 +137,17 @@ const SHOPS = [
 /* ============================================ */
 
 const DAYS=14,COL=['#ff7b72','#5bc0eb','#f6c945','#7ee081','#c792ea','#ff9f43','#4dd0c8','#e6e6e6'];
-const DATES=[...Array(DAYS)].map((_,i)=>{const d=new Date(UPDATED);d.setDate(d.getDate()-(DAYS-1-i));return d.toISOString().slice(5,10)});
-const series=s=>s.h&&s.h.b?s.h.b:DATES.map((_,i)=>+(s.b*(1+.012*Math.sin(i*.9+s.n.length)*(DAYS-1-i)/DAYS)).toFixed(2));
-const avgAt=(c,i)=>wmean(SOURCES.filter(s=>s.c===c).map(s=>series(s)[i])).mean;
+const best=(b,s,r)=>s!=null?s:b!=null?b:r!=null?r:null; // sell price first, then buy, then a reference price
+const ptSrc=(s,pt)=>s.id==='bptf'?(pt.ref!=null?{r:pt.ref}:null):(pt.shops||{})[s.id];
+const ptVal=(pt,c)=>{const v=[];SOURCES.forEach(s=>{if(s.c!==c)return;const x=ptSrc(s,pt),y=x?best(x.b,x.s,x.r):null;if(y!=null)v.push(y)});return v.length?wmean(v).mean:null};
+const ago=(c,days)=>{const t=new Date(UPDATED);t.setDate(t.getDate()-days);const lim=t.toISOString().slice(0,10),p=[...HIST].reverse().find(h=>h.date<=lim);return p?{v:ptVal(p,c),d:p.date}:null};
+function loadKeys(){fetch('keys.json',{cache:'no-cache'}).then(r=>r.ok?r.json():Promise.reject()).then(d=>{
+ const c=d.current||{};SOURCES=[];
+ if(c.ref!=null)SOURCES.push({id:'bptf',n:'backpack.tf',u:BPURL,c:'ref',b:null,s:null,r:c.ref});
+ (d.shops||[]).forEach(x=>SOURCES.push({id:x.id,n:x.name,u:x.url,c:x.unit,b:x.buy,s:x.sell,r:null}));
+ SOURCES.forEach(s=>{s.v=best(s.b,s.s,s.r);s.note=NOTE[s.id]||''});
+ HIST=Array.isArray(d.history)?d.history:[];UPDATED=(d.updated||'').slice(0,10);KSTATE='ok'}).catch(()=>{KSTATE='fail'})
+ .then(()=>{const k=(location.hash||'#home').slice(1).split('?')[0];if(k===''||k==='home'||k==='keys')route()})}
 let ITEMS='Mann Co. Supply Crate Key|Refined Metal|Reclaimed Metal|Scrap Metal|Tour of Duty Ticket|Salvaged Mann Co. Supply Crate|Unusualifier|Strangifier|Name Tag|Description Tag|Killstreak Kit|Specialized Killstreak Kit|Professional Killstreak Kit|Festivizer|Rocket Launcher|Australium Rocket Launcher|Australium Minigun|Australium Scattergun|Australium Sniper Rifle|Australium Flame Thrower|Australium Medi Gun|Australium Stickybomb Launcher|Australium Tomislav|Australium Knife|Australium Wrench|Scattergun|Minigun|Flame Thrower|Medi Gun|Sniper Rifle|Revolver|Stickybomb Launcher|Grenade Launcher|Shotgun|Pistol|Bonesaw|Ubersaw|Kritzkrieg|Quick-Fix|Vaccinator|Eyelander|Frying Pan|Golden Frying Pan|Conniver\'s Kunai|Big Kill|Ambassador|Machina|Wrap Assassin|Holiday Punch|Widowmaker|Beggar\'s Bazooka|Direct Hit|Black Box|Liberty Launcher|Cow Mangler 5000|Loose Cannon|Original|Air Strike|Team Captain|Max\'s Severed Head|Bill\'s Hat|Modest Pile of Hat|Big Country|Le Party Phantom|Killer Exclusive|Ellis\' Cap|Spine-Chilling Skull|Hat Of Undeniable Wealth And Respect|Burning Flames|Scorching Flames|Sunbeams|Purple Energy|Green Energy|Cloud 9|Orbiting Planets|Vivid Plasma|Team Spirit|A Color Similar to Slate|Pink as Hell|An Extraordinary Abundance of Tinge|Australium Gold'.split('|');
 fetch('items.json').then(r=>r.ok?r.json():Promise.reject()).then(d=>{if(d&&Array.isArray(d.items)&&d.items.length>500)ITEMS=[...new Set([...d.items,...ITEMS])]}).catch(()=>{});
 const RED='#c8433f',BLU='#4b83ad',GOLD='#b8892a';
@@ -195,34 +193,40 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 const ext='target="_blank" rel="noopener noreferrer"';
 
 function wmean(vals){
- const a=[...vals].sort((x,y)=>x-y),n=a.length,k=n>=5?1:0;
- const lo=a[k],hi=a[n-1-k];
+ const a=[...vals].sort((x,y)=>x-y),n=a.length;if(!n)return {mean:null,lo:null,hi:null,k:0};
+ const k=n>=3?1:0,lo=a[k],hi=a[n-1-k];
  return {mean:a.map(v=>Math.min(Math.max(v,lo),hi)).reduce((x,y)=>x+y,0)/n,lo,hi,k};
 }
 function calc(){
- const usd=SOURCES.filter(s=>s.c==='usd'),ref=SOURCES.filter(s=>s.c==='ref');
- const u=wmean(usd.map(s=>s.b)),r=wmean(ref.map(s=>s.b));
- return {u,r,rate:u.mean/r.mean};
+ const g=c=>wmean(SOURCES.filter(s=>s.c===c&&s.v!=null).map(s=>s.v)),u=g('usd'),r=g('ref');
+ return {u,r,rate:u.mean&&r.mean?u.mean/r.mean:null};
 }
 const arrow=(now,was)=>{const d=now-was,c=Math.abs(d)<1e-9?'flat':d>0?'up':'down';return `<svg class="arr ${c}" viewBox="0 0 24 24" role="img" aria-label="${c==='flat'?'unchanged':c}"><path d="${c==='flat'?'M4 10h16v4H4z':'M12 3l9 10h-6v8H9v-8H3z'}"/></svg>`};
-const usd=v=>'$'+v.toFixed(2),rf=v=>v.toFixed(2)+' ref';
+const usd=v=>v==null?'–':'$'+v.toFixed(2),rf=v=>v==null?'–':v.toFixed(2)+' ref';
 
-function home(){
- const {u,r}=calc(),pv={usd:avgAt('usd',DAYS-8),ref:avgAt('ref',DAYS-8),d:'7 days ago'};
- return `<h2 class="live">Live Key Value</h2>
- <a class="hero" href="#keys" aria-label="Open key prices">
- <div class="l"><small>Average key price (USD)</small><div class="big"><span class="ico ico-k"></span> <span class="num"><span>${usd(u.mean)}</span>${arrow(u.mean,pv.usd)}</span></div><small>from ${SOURCES.filter(s=>s.c==='usd').length} USD sites. Was ${usd(pv.usd)} ${pv.d}</small></div>
- <div class="r"><small>Average key price (refined)</small><div class="big"><span class="ico ico-r"></span> <span class="num"><span>${r.mean.toFixed(2)}</span>${arrow(r.mean,pv.ref)}</span><span class="unit">ref</span></div><small>from ${SOURCES.filter(s=>s.c==='ref').length} ref sites. Was ${pv.ref.toFixed(2)} ref ${pv.d}</small></div>
+const NOKEYS=()=>`<div class="note">${KSTATE==='loading'?'Loading key prices...':'Key prices are unavailable right now. Open the site through its web address (not as a local file) or try again later.'}</div>`;
+function heroBox(){
+ if(KSTATE!=='ok')return NOKEYS();
+ const {u,r}=calc(),pu=ago('usd',7),pr=ago('ref',7),n=c=>SOURCES.filter(s=>s.c===c&&s.v!=null).length;
+ const was=(p,f)=>p&&p.v!=null?`Was ${f(p.v)} on ${p.d}`:`Tracking since ${HIST[0]?HIST[0].date:UPDATED}`;
+ const ar=(now,p)=>p&&p.v!=null&&now!=null?arrow(now,p.v):'';
+ return `<a class="hero" href="#keys" aria-label="Open key prices">
+ <div class="l"><small>Key price (USD)</small><div class="big"><span class="ico ico-k"></span> <span class="num"><span>${usd(u.mean)}</span>${ar(u.mean,pu)}</span></div><small>from ${n('usd')} USD sites. ${was(pu,usd)}</small></div>
+ <div class="r"><small>Key price (refined)</small><div class="big"><span class="ico ico-r"></span> <span class="num"><span>${r.mean==null?'–':r.mean.toFixed(2)}</span>${ar(r.mean,pr)}</span><span class="unit">ref</span></div><small>from ${n('ref')} ref sites. ${was(pr,rf)}</small></div>
  <span class="key"><span class="ico ico-k"></span></span></a>
- <p class="meta" style="text-align:center;font-size:16px">Buy prices, winsorised mean. Updated ${UPDATED}. <a href="#keys">See every site</a></p>
+ <p class="meta" style="text-align:center;font-size:16px">Sell prices where a site has one, otherwise buy. Winsorised mean. Updated ${UPDATED}. <a href="#keys">See every site</a></p>`;
+}
+function home(){
+
+return `<h2 class="live">Live Key Value</h2>${heroBox()}
  <div class="cats">${Object.entries(PAGES).map(([k,p])=>`<a class="cat" href="#${k}" style="--c:${p.c}"><h3>${p.t}</h3><p>${p.d}</p></a>`).join('')}</div>
  <section class="search"><div class="row"><h3>Search an item on every shop</h3><a href="#search">Advanced search</a></div>
  <div class="sub" style="margin:0">Type an item name and pick a shop. Each opens in a new tab. Press / to jump here.</div>
  <div class="acw"><input id="q" type="search" autocomplete="off" placeholder="e.g. Australium Rocket Launcher" aria-label="Item name"><div id="sug" class="sug" hidden></div></div>
  <div class="chips off" id="chips">${SHOPS.map((s,i)=>`<a class="chip" data-i="${i}" href="#" ${ext}>${esc(s.n)}</a>`).join('')}</div></section>
  <section class="about"><div><h3>What this is</h3><p>A free, community-made starting point for TF2: mods, calculators, shops, trading tools and bot sites, each with a note on what it is best for.</p></div>
- <div><h3>How the key price works</h3><p>The headline number averages what sites pay for a Mann Co. Supply Crate Key. The highest and lowest prices are capped so one odd price can't skew it. USD sites and ref sites are averaged separately.</p></div>
- <div><h3>About the data</h3><p>Prices are entered by hand and are sample values for now, so check the site before you trade. Live updates are planned.</p></div></section>`;
+  <div><h3>How the key price works</h3><p>Each source counts with its sell price (what you pay), or its buy price if it has no sell. The highest and lowest are capped so one odd price cannot skew the result. USD sources and ref sources are averaged separately.</p></div>
+  <div><h3>About the data</h3><p>Prices are read once a day from backpack.tf, STN Trading, Scrap.tf, Steam Market, Mannco.store and Skinport. They are a snapshot, so check the site before you trade. Each source measures something slightly different, see the Key prices page.</p></div></section>`;
 }
 function ac(inp,box,cb){
  let idx=-1,cur=[];
@@ -261,28 +265,31 @@ function wire(){
 }
 addEventListener('keydown',e=>{if(e.key==='/'&&!/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName)){const q=$('#q')||$('#aq');if(q){e.preventDefault();q.focus()}}});
 function chart(c){
- const list=SOURCES.filter(s=>s.c===c),W=820,H=300,P={l:64,r:16,t:16,b:32};
- const all=list.flatMap(series),lo=Math.min(...all),hi=Math.max(...all),pd=(hi-lo||1)*.15,y0=lo-pd,y1=hi+pd;
- const X=i=>P.l+i*(W-P.l-P.r)/(DAYS-1),Y=v=>P.t+(1-(v-y0)/(y1-y0))*(H-P.t-P.b),f=v=>c==='usd'?'$'+v.toFixed(2):v.toFixed(1);
+ const list=SOURCES.filter(s=>s.c===c),W=820,H=300,P={l:64,r:16,t:16,b:32},H2=HIST.slice(-DAYS),N=H2.length,T=c==='usd'?'USD sites':'Ref sites';
+ const ser=list.map(s=>H2.map(pt=>{const x=ptSrc(s,pt);return x?best(x.b,x.s,x.r):null})),all=ser.flat().filter(v=>v!=null);
+ if(!all.length)return `<section class="chart"><h3>${T}: price history</h3><p class="meta">No history yet.</p></section>`;
+ const lo=Math.min(...all),hi=Math.max(...all),pd=(hi-lo||hi*.02)*.15,y0=lo-pd,y1=hi+pd;
+ const X=i=>N>1?P.l+i*(W-P.l-P.r)/(N-1):P.l+(W-P.l-P.r)/2,Y=v=>P.t+(1-(v-y0)/(y1-y0))*(H-P.t-P.b),f=v=>c==='usd'?'$'+v.toFixed(2):v.toFixed(1);
  const grid=[0,1,2,3].map(k=>{const v=y0+(y1-y0)*k/3;return `<line x1="${P.l}" x2="${W-P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="#2a3345"/><text x="${P.l-8}" y="${Y(v)+5}" text-anchor="end" fill="#9aa3b5" font-size="15">${f(v)}</text>`}).join('');
- const xl=[0,4,8,DAYS-1].map(i=>`<text x="${X(i)}" y="${H-8}" text-anchor="middle" fill="#9aa3b5" font-size="15">${DATES[i]}</text>`).join('');
- const lines=list.map((s,k)=>{const v=series(s);return `<g class="ln" data-s="${s.n}" style="color:${COL[k]}"><polyline fill="none" stroke="currentColor" stroke-width="2.5" points="${v.map((x,i)=>X(i)+','+Y(x)).join(' ')}"/>${v.map((x,i)=>`<circle cx="${X(i)}" cy="${Y(x)}" r="4" fill="currentColor"><title>${s.n} ${DATES[i]}: ${f(x)}</title></circle>`).join('')}</g>`}).join('');
- const leg=list.map((s,k)=>`<button class="lg" data-s="${s.n}" style="--k:${COL[k]}">${esc(s.n)}</button>`).join('');
- return `<section class="chart"><h3>${c==='usd'?'USD sites':'Ref sites'}: buy price, last ${DAYS} days</h3><div class="chips">${leg}</div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Key buy price history">${grid}${xl}${lines}</svg></section>`;
+ const xl=[...new Set([0,N-1])].map(i=>`<text x="${X(i)}" y="${H-8}" text-anchor="middle" fill="#9aa3b5" font-size="15">${H2[i].date.slice(5)}</text>`).join('');
+ const lines=list.map((s,k)=>{const pts=ser[k].map((v,i)=>v==null?null:[X(i),Y(v),v,i]).filter(Boolean);return `<g class="ln" data-s="${esc(s.n)}" style="color:${COL[k]}">${pts.length>1?`<polyline fill="none" stroke="currentColor" stroke-width="2.5" points="${pts.map(p=>p[0]+','+p[1]).join(' ')}"/>`:''}${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="currentColor"><title>${esc(s.n)} ${H2[p[3]].date}: ${f(p[2])}</title></circle>`).join('')}</g>`}).join('');
+ const leg=list.map((s,k)=>`<button class="lg" data-s="${esc(s.n)}" style="--k:${COL[k]}">${esc(s.n)}</button>`).join('');
+ return `<section class="chart"><h3>${T}: price history, last ${DAYS} days</h3><div class="chips">${leg}</div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Key price history">${grid}${xl}${lines}</svg>${N<2?`<p class="meta">History starts ${H2[0].date}. The lines fill in as days pass.</p>`:''}</section>`;
 }
 function keys(){
+ if(KSTATE!=='ok')return `<h2>Key prices</h2>${NOKEYS()}`;
  const {u,r,rate}=calc(),mx={},mn={};
- ['usd','ref'].forEach(c=>{const l=SOURCES.filter(s=>s.c===c);mx[c]=Math.max(...l.map(s=>s.b));mn[c]=Math.min(...l.map(s=>s.s))});
- const cap=(s,st)=>st.k&&(s.b<st.lo||s.b>st.hi);
- const conv=(s,v)=>s.c==='usd'?rf(v/rate):usd(v*rate),fmt=(s,v)=>s.c==='usd'?usd(v):rf(v);
- const rows=SOURCES.map(s=>{const st=s.c==='usd'?u:r;return `<tr><td><a href="${s.u}" ${ext}>${esc(s.n)}</a>${cap(s,st)?'<span class="cap" title="Capped in the average">capped</span>':''}${s.b===mx[s.c]?'<span class="cap gd">highest buy</span>':''}${s.s===mn[s.c]?'<span class="cap gd">lowest sell</span>':''}</td>
-  <td class="n">${fmt(s,s.b)}</td><td class="n">${fmt(s,s.s)}</td><td class="n">${conv(s,s.b)}</td><td class="n">${conv(s,s.s)}</td><td>${UPDATED}</td></tr>`}).join('');
- return `<h2>Key prices</h2><p class="sub">The Mann Co. Supply Crate Key on every tracked site. Buy is what the site pays you. Sell is what you pay. Click a name below a chart to hide or show that site.</p>
- <div class="stats"><div class="stat"><b><span class="ico ico-k"></span> ${usd(u.mean)}</b>average, USD sites</div><div class="stat"><b><span class="ico ico-r"></span> ${rf(r.mean)}</b>average, ref sites</div><div class="stat"><b>${rate.toFixed(4)}</b>USD per ref (implied)</div></div>
- <div class="tw"><table><thead><tr><th>Site</th><th class="n">Buy</th><th class="n">Sell</th><th class="n">Buy (converted)</th><th class="n">Sell (converted)</th><th>Updated</th></tr></thead><tbody>${rows}</tbody></table></div>
- <p class="meta" style="margin-top:14px">USD sites and ref sites are averaged separately, so nothing is converted before averaging. Converted columns use the implied rate above. With 5 or more sites in a group, the highest and lowest buy prices are capped to the next value in (winsorised).</p>
+ ['usd','ref'].forEach(c=>{const l=SOURCES.filter(s=>s.c===c),b=l.map(s=>s.b).filter(x=>x!=null),q=l.map(s=>s.s).filter(x=>x!=null);mx[c]=b.length?Math.max(...b):null;mn[c]=q.length?Math.min(...q):null});
+ const cap=(s,st)=>st.k&&s.v!=null&&(s.v<st.lo||s.v>st.hi);
+ const conv=(s,v)=>v==null||rate==null?'–':s.c==='usd'?rf(v/rate):usd(v*rate),fmt=(s,v)=>s.c==='usd'?usd(v):rf(v);
+ const rows=SOURCES.map(s=>{const st=s.c==='usd'?u:r;return `<tr><td><a href="${s.u}" ${ext}>${esc(s.n)}</a>${s.v==null?'<span class="cap">unavailable</span>':''}${cap(s,st)?'<span class="cap" title="Capped in the average">capped</span>':''}${s.b!=null&&s.b===mx[s.c]?'<span class="cap gd">highest buy</span>':''}${s.s!=null&&s.s===mn[s.c]?'<span class="cap gd">lowest sell</span>':''}<br><small>${esc(s.note)}</small></td>
+  <td class="n">${fmt(s,s.b)}</td><td class="n">${fmt(s,s.s)}</td><td class="n">${fmt(s,s.v)}</td><td class="n">${conv(s,s.v)}</td><td>${UPDATED}</td></tr>`}).join('');
+ return `<h2>Key prices</h2><p class="sub">The Mann Co. Supply Crate Key on every tracked source. Buy is what a site pays you. Sell is what you pay. Each source measures something slightly different, so read the note under its name. Click a name below a chart to hide or show it.</p>
+ <div class="stats"><div class="stat"><b><span class="ico ico-k"></span> ${usd(u.mean)}</b>average, USD sites</div><div class="stat"><b><span class="ico ico-r"></span> ${rf(r.mean)}</b>average, ref sites</div><div class="stat"><b>${rate==null?'–':rate.toFixed(4)}</b>USD per ref (implied)</div></div>
+ <div class="tw"><table><thead><tr><th>Source</th><th class="n">Buy</th><th class="n">Sell</th><th class="n">Used in average</th><th class="n">Converted</th><th>Updated</th></tr></thead><tbody>${rows}</tbody></table></div>
+ <p class="meta" style="margin-top:14px">USD and ref sources are averaged separately, so nothing is converted before averaging. Each source counts with its sell price, or its buy price if it has no sell, or (backpack.tf) its reference price. With 3 or more sources in a group, the highest and lowest are capped to the next value in (winsorised). With exactly 3 that leaves the middle value, so one expensive source such as Steam cannot drag the average up. Converted uses the implied rate above.</p>
  ${chart('usd')}${chart('ref')}
- <div class="note">All prices and chart history are sample data. Edit the SOURCES list at the top of the script, and add an h:{b:[...]} array to a source for real history.</div>`;
+ <div class="note">History starts on the first day the daily update ran and only contains real readings. A source that was unavailable on a day is left out of that day.</div>`;
 }
 function cat(k){
  const p=PAGES[k];
@@ -310,7 +317,7 @@ function route(){
   .map(([a,t])=>`<a href="#${a}" class="${a===cur?'on':''}">${t}</a>`).join('');
  wire();window.scrollTo(0,0);
 }
-addEventListener('hashchange',route);route();
+addEventListener('hashchange',route);route();loadKeys();
 </script>
 </body>
 </html>
