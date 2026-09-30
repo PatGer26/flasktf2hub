@@ -81,7 +81,8 @@ def page_text(shop):
             raise RuntimeError("request to %s failed: %s" % (shop["name"], type(e).__name__))
     raw = re.sub(r"(?is)<(script|style).*?</\1>", " ", raw)
     text = html.unescape(re.sub(r"(?s)<[^>]+>", " ", raw))
-    return re.sub(r"\s+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text, len(raw)
 
 
 # The wording differs a bit between sites ("We're buying for: 62.22 ref",
@@ -91,10 +92,13 @@ SELL = re.compile(r"\bsell(?:ing)?(?:\s+keys)?\s+for\s*:?\s*(\d+(?:\.\d+)?)", re
 
 
 def shop_price(shop):
-    text = page_text(shop)
+    text, raw_len = page_text(shop)
     b, s = BUY.search(text), SELL.search(text)
     if not b or not s:
-        raise RuntimeError("%s: buy/sell price not found in page (layout changed, or blocked?)" % shop["name"])
+        # Diagnostic: show what the server actually sent (public page text, no secrets)
+        raise RuntimeError("%s: buy/sell price not found in page (layout changed, or blocked?). "
+                           "Received %d bytes of HTML, %d chars of text. Text starts: %r"
+                           % (shop["name"], raw_len, len(text), text[:300]))
     buy, sell = float(b.group(1)), float(s.group(1))
     if not (sane(buy) and sane(sell)) or buy >= sell:
         raise RuntimeError("%s: prices look wrong (buy %s, sell %s)" % (shop["name"], buy, sell))
