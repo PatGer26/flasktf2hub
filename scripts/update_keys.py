@@ -3,11 +3,11 @@
 
 Sources (each one is fetched separately; a failure only skips that source):
   - backpack.tf IGetCurrencies API (needs BPTF_API_KEY, a GitHub Actions secret)
-  - STN Trading and Quicksell: buy/sell price read from their public key pages
+  - STN Trading: buy/sell price read from its public key page
 
 keys.json = {"updated", "current": {"ref", "low", "high"}, "shops": [...], "history": [...]}
 
-Offline tests (no network): CURRENCIES_FILE, STN_FILE, QUICKSELL_FILE point at saved responses/pages.
+Offline tests (no network): CURRENCIES_FILE, STN_FILE points at saved responses/pages.
 """
 import html, json, os, re, sys, urllib.request, urllib.parse, urllib.error
 from datetime import datetime, timezone
@@ -18,7 +18,6 @@ UA = "FlaskTF2Hub/1.0 (hobby site; daily check; contact via github.com/PatGer26/
 
 SHOPS = [
     {"id": "stn", "name": "STN Trading", "url": "https://stntrading.eu/tf2/keys", "env": "STN_FILE"},
-    {"id": "quicksell", "name": "Quicksell", "url": "https://quicksell.store/keys", "env": "QUICKSELL_FILE"},
 ]
 
 
