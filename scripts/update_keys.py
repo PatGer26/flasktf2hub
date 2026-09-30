@@ -166,32 +166,42 @@ def mannco():
                                          headers={"User-Agent": UA, "Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=30) as r:
                 jwt = json.load(r)["content"]["jwt"]
-            # 2) read the pricing for the key
+            auth = {"User-Agent": UA, "Authorization": "Bearer " + jwt}
+            # 2) look up the numeric item id from the URL slug (the pricing endpoint wants the number)
+            step = "item lookup"
+            req = urllib.request.Request(MANNCO_API + "/item/details/" + MANNCO_ITEM, headers=auth)
+            with urllib.request.urlopen(req, timeout=30) as r:
+                details = json.load(r)
+            item_id = ((details.get("content") or {}).get("informations") or {}).get("id")
+            if not isinstance(item_id, int):
+                raise RuntimeError("Mannco item lookup gave no numeric id")
+            # 3) read the pricing for that id
             step = "pricing"
-            req = urllib.request.Request(MANNCO_API + "/item/pricing/" + MANNCO_ITEM,
-                                         headers={"User-Agent": UA, "Authorization": "Bearer " + jwt})
+            req = urllib.request.Request(MANNCO_API + "/item/pricing/" + str(item_id), headers=auth)
             with urllib.request.urlopen(req, timeout=30) as r:
                 data = json.load(r)
         except urllib.error.HTTPError as e:
-            # Never print the login response (it holds the token) or any URL. The pricing response
-            # only holds public item data, so its first 400 characters help us diagnose the error.
+            # Never print the login response (it holds the token) or any URL. Item lookup and pricing
+            # responses only hold public item data, so their first 400 characters help diagnosis.
             msg = "Mannco API returned HTTP %s at the %s step (content-type: %s)" % (e.code, step, e.headers.get("Content-Type"))
-            if step == "pricing":
+            if step != "login":
                 try:
-                    msg += "; Location: %s; body starts: %r" % (e.headers.get("Location"), e.read(400).decode("utf-8", "replace"))
+                    msg += "; body starts: %r" % e.read(400).decode("utf-8", "replace")
                 except Exception:
                     pass
             raise RuntimeError(msg)
+        except RuntimeError:
+            raise
         except Exception as e:
-            raise RuntimeError("Mannco API request failed: %s" % type(e).__name__)
+            raise RuntimeError("Mannco API request failed at the %s step: %s" % (step, type(e).__name__))
     if not data.get("success"):
         raise RuntimeError("Mannco API reported an error")
     pricing = (data.get("content") or {}).get("pricing") or {}
     sell, buy = cents(pricing.get("lowest_sale_price")), cents(pricing.get("lowest_buy_order"))
     if not (sell and 0.5 < sell < 50):
         raise RuntimeError("Mannco price looks wrong: %r" % pricing.get("lowest_sale_price"))
-    if buy is not None and not (0.5 < buy < 50):
-        buy = None
+    if buy is not None and not (0.5 < buy < 50 and buy < sell):
+        buy = None  # out of range, or not below the sell price: treat as unavailable
     return buy, sell
 
 
