@@ -13,9 +13,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch key price from backpack.tf
+      - name: Fetch key prices
         env:
           BPTF_API_KEY: ${{ secrets.BPTF_API_KEY }}
+          MANNCO_API_KEY: ${{ secrets.MANNCO_API_KEY }}
         run: python3 scripts/update_keys.py
       - name: Commit if changed
         run: |
