@@ -3,11 +3,13 @@
 
 Sources (each one is fetched separately; a failure only skips that source):
   - backpack.tf IGetCurrencies API (needs BPTF_API_KEY, a GitHub Actions secret)
-  - STN Trading: buy/sell price read from its public key page
+  - STN Trading: buy/sell price in ref, read from its public key page
+  - Steam Community Market: lowest listing price in USD (public priceoverview JSON, no key)
+  - Mannco.store: lowest sale price and buy-order price in USD (official API; MANNCO_API_KEY secret)
 
 keys.json = {"updated", "current": {"ref", "low", "high"}, "shops": [...], "history": [...]}
 
-Offline tests (no network): CURRENCIES_FILE, STN_FILE points at saved responses/pages.
+Offline tests (no network): CURRENCIES_FILE, STN_FILE, STEAM_FILE, MANNCO_FILE point at saved responses/pages.
 """
 import html, json, os, re, sys, urllib.request, urllib.parse, urllib.error
 from datetime import datetime, timezone
@@ -104,6 +106,85 @@ def shop_price(shop):
     return buy, sell
 
 
+# ---------- Steam Community Market (USD) ----------
+STEAM_URL = ("https://steamcommunity.com/market/priceoverview/?"
+             + urllib.parse.urlencode({"appid": 440, "currency": 1, "market_hash_name": "Mann Co. Supply Crate Key"}))
+STEAM_PAGE = "https://steamcommunity.com/market/listings/440/Mann%20Co.%20Supply%20Crate%20Key"
+
+
+def usd(text):
+    """'$2.30' or '$1,234.50' -> float"""
+    m = re.search(r"(\d[\d,]*(?:\.\d+)?)", str(text or ""))
+    return float(m.group(1).replace(",", "")) if m else None
+
+
+def steam():
+    f = os.environ.get("STEAM_FILE")
+    if f:
+        data = json.load(open(f, encoding="utf-8"))
+    else:
+        req = urllib.request.Request(STEAM_URL, headers={"User-Agent": UA})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                data = json.load(r)
+        except urllib.error.HTTPError as e:
+            raise RuntimeError("Steam Market returned HTTP %s (429 = rate limited or blocked)" % e.code)
+        except Exception as e:
+            raise RuntimeError("Steam Market request failed: %s" % type(e).__name__)
+    if not data.get("success"):
+        raise RuntimeError("Steam Market did not report success: %s" % str(data)[:200])
+    low, med = usd(data.get("lowest_price")), usd(data.get("median_price"))
+    if not (1 < (low or 0) < 50):
+        raise RuntimeError("Steam Market price looks wrong: %r" % data.get("lowest_price"))
+    return low, (med if med and 1 < med < 50 else None)
+
+
+# ---------- Mannco.store official API (USD) ----------
+MANNCO_API = "https://api.mannco.store"
+MANNCO_ITEM = "440-mann-co-supply-crate-key"
+MANNCO_PAGE = "https://mannco.store/item/440-mann-co-supply-crate-key"
+
+
+def cents(v):
+    v = num(v)
+    return round(v / 100.0, 2) if v else None
+
+
+def mannco():
+    f = os.environ.get("MANNCO_FILE")
+    if f:
+        data = json.load(open(f, encoding="utf-8"))
+    else:
+        key = os.environ.get("MANNCO_API_KEY", "").strip()
+        if not key:
+            raise RuntimeError("MANNCO_API_KEY is not set")
+        try:
+            # 1) exchange the API key for a short-lived token (the token is tied to this machine's IP)
+            body = json.dumps({"apiKey": key}).encode()
+            req = urllib.request.Request(MANNCO_API + "/user/login", data=body, method="POST",
+                                         headers={"User-Agent": UA, "Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                jwt = json.load(r)["content"]["jwt"]
+            # 2) read the pricing for the key
+            req = urllib.request.Request(MANNCO_API + "/item/pricing/" + MANNCO_ITEM,
+                                         headers={"User-Agent": UA, "Authorization": "Bearer " + jwt})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                data = json.load(r)
+        except urllib.error.HTTPError as e:
+            raise RuntimeError("Mannco API returned HTTP %s" % e.code)  # never print bodies/URLs: they can hold secrets
+        except Exception as e:
+            raise RuntimeError("Mannco API request failed: %s" % type(e).__name__)
+    if not data.get("success"):
+        raise RuntimeError("Mannco API reported an error")
+    pricing = (data.get("content") or {}).get("pricing") or {}
+    sell, buy = cents(pricing.get("lowest_sale_price")), cents(pricing.get("lowest_buy_order"))
+    if not (sell and 0.5 < sell < 50):
+        raise RuntimeError("Mannco price looks wrong: %r" % pricing.get("lowest_sale_price"))
+    if buy is not None and not (0.5 < buy < 50):
+        buy = None
+    return buy, sell
+
+
 def main():
     now = datetime.now(timezone.utc)
     today = now.strftime("%Y-%m-%d")
@@ -126,6 +207,26 @@ def main():
         except Exception as e:
             problems.append(str(e))
         shops.append(entry)
+
+    # Steam Market: USD, lowest listing = what a buyer pays. No buy side.
+    st = {"id": "steam", "name": "Steam Market", "url": STEAM_PAGE, "unit": "usd", "buy": None, "sell": None, "median": None}
+    try:
+        st["sell"], st["median"] = steam()
+        today_shops["steam"] = {"s": st["sell"], "m": st["median"]}
+        got += 1
+    except Exception as e:
+        problems.append(str(e))
+    shops.append(st)
+
+    # Mannco.store: USD via its official API. buy = buy-order price, sell = lowest sale price.
+    mc = {"id": "mannco", "name": "Mannco.store", "url": MANNCO_PAGE, "unit": "usd", "buy": None, "sell": None}
+    try:
+        mc["buy"], mc["sell"] = mannco()
+        today_shops["mannco"] = {"b": mc["buy"], "s": mc["sell"]}
+        got += 1
+    except Exception as e:
+        problems.append(str(e))
+    shops.append(mc)
 
     for p in problems:
         print("WARNING:", p)
@@ -151,7 +252,7 @@ def main():
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(out, f, indent=1)
     print("ok: backpack.tf ref=%s; shops: %s; %d history points" %
-          (current["ref"], {k: (v["b"], v["s"]) for k, v in today_shops.items()}, len(history)))
+          (current["ref"], {k: (v.get("b"), v.get("s")) for k, v in today_shops.items()}, len(history)))
 
 
 if __name__ == "__main__":
