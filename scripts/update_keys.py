@@ -184,6 +184,8 @@ def mannco():
             # Never print the login response (it holds the token) or any URL. Item lookup and pricing
             # responses only hold public item data, so their first 400 characters help diagnosis.
             msg = "Mannco API returned HTTP %s at the %s step (content-type: %s)" % (e.code, step, e.headers.get("Content-Type"))
+            if e.code == 429:
+                msg += "; rate limited, Retry-After: %s seconds" % e.headers.get("Retry-After")
             if step != "login":
                 try:
                     msg += "; body starts: %r" % e.read(400).decode("utf-8", "replace")
