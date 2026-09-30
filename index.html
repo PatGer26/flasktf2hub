@@ -211,8 +211,7 @@ const usd=v=>'$'+v.toFixed(2),rf=v=>v.toFixed(2)+' ref';
 
 function home(){
  const {u,r}=calc(),pv={usd:avgAt('usd',DAYS-8),ref:avgAt('ref',DAYS-8),d:'7 days ago'};
- return `<p class="lead">Your starting point for Team Fortress 2: the best mods, tools, shops and trading sites in one place, with an at-a-glance key price.</p>
- <h2 class="live">Live Key Value</h2>
+ return `<h2 class="live">Live Key Value</h2>
  <a class="hero" href="#keys" aria-label="Open key prices">
  <div class="l"><small>Average key price (USD)</small><div class="big"><span class="ico ico-k"></span> <span class="num"><span>${usd(u.mean)}</span>${arrow(u.mean,pv.usd)}</span></div><small>from ${SOURCES.filter(s=>s.c==='usd').length} USD sites. Was ${usd(pv.usd)} ${pv.d}</small></div>
  <div class="r"><small>Average key price (refined)</small><div class="big"><span class="ico ico-r"></span> <span class="num"><span>${r.mean.toFixed(2)}</span>${arrow(r.mean,pv.ref)}</span><span class="unit">ref</span></div><small>from ${SOURCES.filter(s=>s.c==='ref').length} ref sites. Was ${pv.ref.toFixed(2)} ref ${pv.d}</small></div>
