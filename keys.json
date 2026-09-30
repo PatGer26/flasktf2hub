@@ -1,0 +1,15 @@
+{
+ "updated": "2026-09-30T18:03:32Z",
+ "source": "backpack.tf IGetCurrencies",
+ "current": {
+  "ref": 64.56,
+  "low": 64.11,
+  "high": 65.0
+ },
+ "history": [
+  {
+   "date": "2026-09-30",
+   "ref": 64.56
+  }
+ ]
+}
