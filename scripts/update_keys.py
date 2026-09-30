@@ -158,6 +158,7 @@ def mannco():
         key = os.environ.get("MANNCO_API_KEY", "").strip()
         if not key:
             raise RuntimeError("MANNCO_API_KEY is not set")
+        step = "login"
         try:
             # 1) exchange the API key for a short-lived token (the token is tied to this machine's IP)
             body = json.dumps({"apiKey": key}).encode()
@@ -166,12 +167,21 @@ def mannco():
             with urllib.request.urlopen(req, timeout=30) as r:
                 jwt = json.load(r)["content"]["jwt"]
             # 2) read the pricing for the key
+            step = "pricing"
             req = urllib.request.Request(MANNCO_API + "/item/pricing/" + MANNCO_ITEM,
                                          headers={"User-Agent": UA, "Authorization": "Bearer " + jwt})
             with urllib.request.urlopen(req, timeout=30) as r:
                 data = json.load(r)
         except urllib.error.HTTPError as e:
-            raise RuntimeError("Mannco API returned HTTP %s" % e.code)  # never print bodies/URLs: they can hold secrets
+            # Never print the login response (it holds the token) or any URL. The pricing response
+            # only holds public item data, so its first 400 characters help us diagnose the error.
+            msg = "Mannco API returned HTTP %s at the %s step (content-type: %s)" % (e.code, step, e.headers.get("Content-Type"))
+            if step == "pricing":
+                try:
+                    msg += "; Location: %s; body starts: %r" % (e.headers.get("Location"), e.read(400).decode("utf-8", "replace"))
+                except Exception:
+                    pass
+            raise RuntimeError(msg)
         except Exception as e:
             raise RuntimeError("Mannco API request failed: %s" % type(e).__name__)
     if not data.get("success"):
