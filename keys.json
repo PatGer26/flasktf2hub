@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-29T11:43:18Z",
+ "updated": "2026-10-30T11:35:29Z",
  "current": {
   "ref": 64.56,
   "low": 64.11,
@@ -36,7 +36,7 @@
    "name": "Mannco.store",
    "url": "https://mannco.store/item/440-mann-co-supply-crate-key",
    "unit": "usd",
-   "buy": 1.71,
+   "buy": 1.73,
    "sell": 1.74
   },
   {
@@ -46,7 +46,7 @@
    "unit": "usd",
    "buy": null,
    "sell": 1.81,
-   "median": 1.84
+   "median": 1.87
   }
  ],
  "history": [
@@ -822,6 +822,32 @@
     "skinport": {
      "s": 1.81,
      "m": 1.84
+    }
+   }
+  },
+  {
+   "date": "2026-10-30",
+   "ref": 64.56,
+   "shops": {
+    "stn": {
+     "b": 63.88,
+     "s": 67.88
+    },
+    "scrap": {
+     "b": 64.0,
+     "s": 68.0
+    },
+    "steam": {
+     "s": 2.09,
+     "m": 2.08
+    },
+    "mannco": {
+     "b": 1.73,
+     "s": 1.74
+    },
+    "skinport": {
+     "s": 1.81,
+     "m": 1.87
     }
    }
   }
