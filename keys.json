@@ -1,5 +1,5 @@
 {
- "updated": "2026-10-31T11:11:23Z",
+ "updated": "2026-11-01T12:00:05Z",
  "current": {
   "ref": 64.56,
   "low": 64.11,
@@ -28,8 +28,8 @@
    "url": "https://steamcommunity.com/market/listings/440/Mann%20Co.%20Supply%20Crate%20Key",
    "unit": "usd",
    "buy": null,
-   "sell": 2.11,
-   "median": 2.12
+   "sell": 2.12,
+   "median": 2.17
   },
   {
    "id": "mannco",
@@ -45,7 +45,7 @@
    "url": "https://skinport.com/tf2/market/tool?item=Mann+Co.+Supply+Crate+Key",
    "unit": "usd",
    "buy": null,
-   "sell": 1.78,
+   "sell": 1.68,
    "median": 1.88
   }
  ],
@@ -873,6 +873,32 @@
     },
     "skinport": {
      "s": 1.78,
+     "m": 1.88
+    }
+   }
+  },
+  {
+   "date": "2026-11-01",
+   "ref": 64.56,
+   "shops": {
+    "stn": {
+     "b": 63.88,
+     "s": 67.88
+    },
+    "scrap": {
+     "b": 63.88,
+     "s": 67.88
+    },
+    "steam": {
+     "s": 2.12,
+     "m": 2.17
+    },
+    "mannco": {
+     "b": 1.73,
+     "s": 1.74
+    },
+    "skinport": {
+     "s": 1.68,
      "m": 1.88
     }
    }
